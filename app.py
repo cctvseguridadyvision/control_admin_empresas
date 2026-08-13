@@ -28,8 +28,7 @@ def conectar_google():
 # Intentar abrir la conexión y el libro de Google Sheets
 try:
     client = conectar_google()
-    
-    # OPCIÓN 1: Abrir por el NOMBRE EXACTO de la hoja en Google Drive
+    sh = client.open_by_key("1_Kqu0JXNykxvD6Pag9gvmCAYlFz0wKkp")
     sh = client.open("Sistema_CCTV_Compras_Inventario_Proveedores")
     
     # OPCIÓN 2 (Recomendada si la Opción 1 falla por el nombre):
