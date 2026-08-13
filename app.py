@@ -28,16 +28,14 @@ def conectar_google():
 # Intentar abrir la conexión y el libro de Google Sheets
 try:
     client = conectar_google()
-    sh = client.open_by_key("1_Kqu0JXNykxvD6Pag9gvmCAYlFz0wKkp")
-    sh = client.open("Sistema_CCTV_Compras_Inventario_Proveedores")
     
-    # OPCIÓN 2 (Recomendada si la Opción 1 falla por el nombre):
-    # Descomenta la siguiente línea y pega la clave de tu URL de Google Sheets
-    # sh = client.open_by_key("ID_DE_TU_HOJA_DE_CALCULO")
+    # ID de la hoja de cálculo extraído directamente de tu URL
+    SPREADSHEET_ID = "1_Kqu0JXNykxvD6Pag9gvmCAYlFz0wKkp"
+    sh = client.open_by_key(SPREADSHEET_ID)
 
 except Exception as e:
-    st.error(f"⚠️ Error de conexión con Google Drive / Sheets: {str(e)}")
-    st.info("Asegúrate de que la cuenta de servicio tenga permisos de Editor en la hoja de Google Sheets y que las credenciales en Secrets estén bien configuradas.")
+    st.error(f"⚠️ Error al conectar con Google Sheets: {str(e)}")
+    st.info("Verifica que hayas guardado el archivo como Hoja de Cálculo de Google y que lo hayas compartido como Editor con la cuenta de servicio.")
     st.stop()
 
 # ==========================================
@@ -61,14 +59,29 @@ if opcion == "📦 Inventario & Productos":
     
     try:
         ws = sh.worksheet("Productos_Servicios")
-        df = pd.DataFrame(ws.get_all_records())
+        data = ws.get_all_values()
+        
+        # Buscar la fila donde están los encabezados (donde dice Código_SKU o Nombre_Producto)
+        header_idx = 0
+        for i, row in enumerate(data):
+            if "Código_SKU" in row or "Nombre_Producto" in row:
+                header_idx = i
+                break
+                
+        df = pd.DataFrame(data[header_idx + 1:], columns=data[header_idx])
+        
+        # Limpiar columnas vacías si las hay
+        df = df.loc[:, df.columns != '']
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Referencias", len(df))
         
         if 'Stock_Fisico' in df.columns:
-            col2.metric("Productos Disponibles", len(df[df['Stock_Fisico'] > 0]))
-            col3.metric("Productos Agotados", len(df[df['Stock_Fisico'] == 0]))
+            # Convertir a numérico para filtros y métricas
+            df['Stock_Num'] = pd.to_numeric(df['Stock_Fisico'], errors='coerce').fillna(0)
+            col2.metric("Productos Disponibles", len(df[df['Stock_Num'] > 0]))
+            col3.metric("Productos Agotados", len(df[df['Stock_Num'] == 0]))
+            df = df.drop(columns=['Stock_Num'])
         else:
             col2.metric("Productos Disponibles", "N/A")
             col3.metric("Productos Agotados", "N/A")
@@ -87,7 +100,15 @@ elif opcion == "🏢 Directorio Proveedores":
     
     try:
         ws = sh.worksheet("Proveedores")
-        df = pd.DataFrame(ws.get_all_records())
+        data = ws.get_all_values()
+        
+        header_idx = 0
+        for i, row in enumerate(data):
+            if any(cell.strip() for cell in row):
+                header_idx = i
+                break
+                
+        df = pd.DataFrame(data[header_idx + 1:], columns=data[header_idx])
         st.dataframe(df, use_container_width=True)
         
     except Exception as e:
@@ -100,8 +121,16 @@ elif opcion == "🛒 Compras & Cuentas por Pagar":
     st.title("🛒 Registro de Compras y Cuentas por Pagar")
     
     try:
-        ws = sh.worksheet("Compras")
-        df = pd.DataFrame(ws.get_all_records())
+        ws = sh.worksheet("Compras_Proveedores")
+        data = ws.get_all_values()
+        
+        header_idx = 0
+        for i, row in enumerate(data):
+            if any(cell.strip() for cell in row):
+                header_idx = i
+                break
+                
+        df = pd.DataFrame(data[header_idx + 1:], columns=data[header_idx])
         st.dataframe(df, use_container_width=True)
         
     except Exception as e:
@@ -112,4 +141,4 @@ elif opcion == "🛒 Compras & Cuentas por Pagar":
 # ------------------------------------------
 elif opcion == "➕ Registrar Entrada / Abono":
     st.title("➕ Registrar Nueva Entrada o Abono")
-    st.info("Módulo para registro de movimientos.")
+    st.info("Módulo para registro de movimientos operacionales.")
